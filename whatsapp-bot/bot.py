@@ -182,5 +182,10 @@ if __name__ == "__main__":
     if not tokens:
         raise SystemExit("Set WA_AGENT_TOKEN (and optionally WA_AGENT_TOKEN_2, WA_AGENT_TOKEN_3).")
     print(f"Starting {len(tokens)} agent(s); providers: {[p[2] for p in PROVIDERS]}", flush=True)
-    threading.Thread(target=supervise, args=(tokens,), daemon=True).start()
-    serve_health()
+    if os.environ.get("EMBEDDED_BOT") == "1":
+        # Running inside the website's container: the site already answers on PORT,
+        # so don't open a second HTTP server. Just supervise the agents.
+        supervise(tokens)
+    else:
+        threading.Thread(target=supervise, args=(tokens,), daemon=True).start()
+        serve_health()
