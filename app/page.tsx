@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma, safe } from '@/lib/prisma';
 import Widgets from '@/components/Widgets';
 import { getSettings } from '@/lib/settings';
 export const dynamic = 'force-dynamic'; // admin changes show up immediately
@@ -10,7 +10,7 @@ const SECTIONS = [
 ];
 
 export default async function Home() {
-  const items = await prisma.item.findMany({ orderBy: { createdAt: 'desc' } });
+  const items = await safe(() => prisma.item.findMany({ orderBy: { createdAt: 'desc' } }), []);
   const { etsyUrl, teachingUrl } = await getSettings();
   const linkBtn = 'rounded-lg border border-brand-500 px-4 py-2 text-sm font-medium text-brand-500 hover:bg-brand-50';
   return (
