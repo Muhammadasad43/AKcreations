@@ -20,6 +20,54 @@ export const emptyCv: Cv = {
   objective: '', personal: '', qualifications: '', skills: '', experience: '', hobbies: '', languages: '',
 };
 
+/** Starting CV (Amina). Shown until the admin saves their own version in the dashboard. */
+export const defaultCv: Cv = {
+  fullName: 'Amina',
+  title: 'Quran teacher',
+  address: 'Native Pakistani',
+  phone: '03*********',
+  email: 'ak*****81@gmail.com',
+  website: 'akcreations.onrender.com',
+  objective: 'Seeking a position as an Online Quran Teacher to teach Quran with Tajweed, Nazra, and Islamic studies to students of all ages with dedication and sincerity',
+  personal: [
+    'Name: Amina',
+    'Father: Muhammad Khalil',
+    'Date of birth: 25 Feb 2002',
+    'Nationality: Pakistan',
+    'Marital status: Single',
+    'Location: Native, Pakistan',
+  ].join('\n'),
+  qualifications: [
+    'Matriculation from BISE Pakistani',
+    'Intermediate from BIE Pakistani',
+    'ADP English from University',
+    'Tarjuma Tafseer Tajweed Course from Islamia Muhib-e-Rasool Madrassa',
+    'Alima Course (Continue)',
+    'Last year',
+  ].join('\n'),
+  skills: [
+    'Tajweed & Qirat :: 5 Years Experience',
+    'Nazra Quran Teaching :: For kids and adults',
+    'Hifz-ul-Quran :: With revision techniques',
+    'Islamic Studies :: Duas, Kalmas, Namaz',
+    'Fluent in Urdu, Punjabi, Basic English',
+  ].join('\n'),
+  experience: [
+    '2 years experience as online Quran teacher',
+    'Teaching students from Pakistan, UK, USA, Canada',
+  ].join('\n'),
+  hobbies: [
+    'Recitation of Holy Quran',
+    'Reading Islamic Books',
+    'Teaching Islamic Education to Kids',
+  ].join('\n'),
+  languages: [
+    'Urdu - Native / Fluent',
+    'English - Basic',
+    'Arabic - Quran Reading with Tajweed',
+  ].join('\n'),
+};
+
 const LIMITS: Record<keyof Cv, number> = {
   fullName: 100, title: 100, address: 200, phone: 50, email: 200, website: 200,
   objective: 600, personal: 1500, qualifications: 1500, skills: 2000, experience: 2500, hobbies: 800, languages: 500,
