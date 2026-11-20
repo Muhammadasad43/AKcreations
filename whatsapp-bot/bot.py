@@ -104,6 +104,35 @@ def collect_tokens():
     return tokens[:MAX_AGENTS]
 
 
+def is_auth_error(err):
+    text = str(err).lower()
+    return any(s in text for s in ("authorization", "bearer token", "http=401", "http=403", "invalid or missing"))
+
+
+def run_forever(agent, label):
+    """Keep one agent polling forever. Errors are logged as ONE short line (no traceback spam)
+    and retried with backoff; a rejected token is retried only every 10 minutes."""
+    delay = 5
+    while True:
+        started = time.time()
+        try:
+            agent.run()
+            err = "polling stopped"
+        except Exception as e:  # noqa: BLE001
+            err = e
+        if time.time() - started > 120:
+            delay = 5  # it ran fine for a while, so start the backoff over
+        if is_auth_error(err):
+            wait = 600
+            print(f"[{label}] WhatsApp token rejected ({str(err)[:90]}). "
+                  f"Check WA_AGENT_TOKEN in Render. Retrying in {wait // 60} min.", flush=True)
+        else:
+            wait = delay
+            delay = min(delay * 2, 300)
+            print(f"[{label}] error: {str(err)[:150]}. Retrying in {wait}s.", flush=True)
+        time.sleep(wait)
+
+
 def run_agent(token, label):
     """One WhatsApp agent = one process = one long-poll loop (Meta allows one poller per key)."""
     history = []
@@ -111,6 +140,12 @@ def run_agent(token, label):
 
     @agent.on_text
     def handle(ctx):
+        try:
+            _handle(ctx)
+        except Exception as e:  # noqa: BLE001  # one bad message must never stop the bot
+            print(f"[{label}] message error: {str(e)[:150]}", flush=True)
+
+    def _handle(ctx):
         nonlocal history
         msg = (ctx.text or "").strip()
         if not msg:
@@ -134,7 +169,7 @@ def run_agent(token, label):
             ctx.reply(part)
 
     print(f"[{label}] started", flush=True)
-    agent.run()
+    run_forever(agent, label)
 
 
 def supervise(tokens):
@@ -151,9 +186,12 @@ def supervise(tokens):
     while True:
         time.sleep(30)
         for i, p in list(procs.items()):
-            if not p.is_alive():
-                print(f"[agent{i + 1}] stopped (exit {p.exitcode}); restarting", flush=True)
-                start(i)
+            try:
+                if not p.is_alive():
+                    print(f"[agent{i + 1}] stopped (exit {p.exitcode}); restarting", flush=True)
+                    start(i)
+            except Exception as e:  # noqa: BLE001
+                print(f"[agent{i + 1}] supervisor error: {str(e)[:150]}", flush=True)
 
 
 # ---------- Tiny web endpoint so Render sees a web service, and UptimeRobot has something to ping ----------
@@ -179,8 +217,11 @@ def serve_health():
 
 if __name__ == "__main__":
     tokens = collect_tokens()
-    if not tokens:
-        raise SystemExit("Set WA_AGENT_TOKEN (and optionally WA_AGENT_TOKEN_2, WA_AGENT_TOKEN_3).")
+    while not tokens:
+        # Never exit: the website must keep running. Re-check for a token every 5 minutes.
+        print("[bot] No WA_AGENT_TOKEN set. Add one in Render (Environment). Waiting...", flush=True)
+        time.sleep(300)
+        tokens = collect_tokens()
     print(f"Starting {len(tokens)} agent(s); providers: {[p[2] for p in PROVIDERS]}", flush=True)
     if os.environ.get("EMBEDDED_BOT") == "1":
         # Running inside the website's container: the site already answers on PORT,
