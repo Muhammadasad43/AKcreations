@@ -1,4 +1,4 @@
-import { prisma, safe } from '@/lib/prisma';
+import { listItems } from '@/lib/store';
 import Widgets from '@/components/Widgets';
 import { getSettings } from '@/lib/settings';
 export const dynamic = 'force-dynamic'; // admin changes show up immediately
@@ -10,8 +10,7 @@ const SECTIONS = [
 ];
 
 export default async function Home() {
-  const items = await safe(() => prisma.item.findMany({ orderBy: { createdAt: 'desc' } }), []);
-  const { etsyUrl, teachingUrl } = await getSettings();
+  const [items, { etsyUrl, teachingUrl }] = await Promise.all([listItems(), getSettings()]);
   const linkBtn = 'rounded-lg border border-brand-500 px-4 py-2 text-sm font-medium text-brand-500 hover:bg-brand-50';
   return (
     <main>
@@ -31,20 +30,20 @@ export default async function Home() {
       </section>
       <div className="mx-auto max-w-6xl space-y-12 px-4 py-12">
         {SECTIONS.map(([key, label, sub]) => {
-          const list = items.filter((i) => i.category === key);
+          const list = items.filter((item) => item.category === key);
           return (
             <section key={key}>
               <h2 className="text-title-xs font-semibold text-gray-800">{label}</h2>
               <p className="mb-4 text-sm text-gray-500">{sub}</p>
               {list.length === 0 && <p className="rounded-2xl border border-dashed border-gray-300 p-6 text-sm text-gray-400">Nothing here yet. Check back soon.</p>}
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {list.map((i) => (
-                  <article key={i.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                    {i.imageUrl && <img src={i.imageUrl} alt={i.title} className="h-48 w-full object-cover" />}
+                {list.map((item) => (
+                  <article key={item.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                    {item.imageUrl && <img src={item.imageUrl} alt={item.title} className="h-48 w-full object-cover" />}
                     <div className="p-4">
-                      <h3 className="font-semibold text-gray-800">{i.title}</h3>
-                      <p className="mt-1 text-sm text-gray-500">{i.description}</p>
-                      {i.price != null && <p className="mt-3 font-semibold text-brand-500">Rs {i.price}</p>}
+                      <h3 className="font-semibold text-gray-800">{item.title}</h3>
+                      <p className="mt-1 text-sm text-gray-500">{item.description}</p>
+                      {item.price != null && <p className="mt-3 font-semibold text-brand-500">Rs {item.price}</p>}
                     </div>
                   </article>
                 ))}
