@@ -1,16 +1,16 @@
-import { prisma } from '@/lib/prisma';
-import { normalizeCv, defaultCv, type Cv } from '@/lib/cv';
+import { defaultCv, normalizeCv, type Cv } from '@/lib/cv';
+import { getSiteSettings } from '@/lib/store';
 
 export type Settings = { contactEmail: string; etsyUrl: string; teachingUrl: string; cv: Cv };
 
 export async function getSettings(): Promise<Settings> {
   try {
-    const row = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+    const row = await getSiteSettings();
     return {
-      contactEmail: row?.contactEmail ?? '',
-      etsyUrl: row?.etsyUrl ?? '',
-      teachingUrl: row?.teachingUrl ?? '',
-      cv: row?.cv ? normalizeCv(row.cv) : defaultCv,
+      contactEmail: row.contactEmail ?? '',
+      etsyUrl: row.etsyUrl ?? '',
+      teachingUrl: row.teachingUrl ?? '',
+      cv: row.cv ? normalizeCv(row.cv) : defaultCv,
     };
   } catch (e) {
     console.error('getSettings failed', e);

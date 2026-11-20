@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
 import { isAdmin } from '@/lib/auth';
 import { getSettings, getRecipient } from '@/lib/settings';
-import { cleanUrl, isEmail, normalizeCv } from '@/lib/cv';
+import { cleanUrl, isEmail, normalizeCv, type Cv } from '@/lib/cv';
 import { sendMail, mailConfigured } from '@/lib/mailer';
+import { updateSiteSettings, type SiteSettings } from '@/lib/store';
 
 export const runtime = 'nodejs';
 
@@ -13,31 +12,29 @@ export async function GET() {
   return NextResponse.json({ ...(await getSettings()), smtpReady: mailConfigured() });
 }
 
-// Partial update: only the fields present in the body are changed.
 export async function PUT(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const b = await req.json().catch(() => ({}));
-  const data: { contactEmail?: string | null; etsyUrl?: string | null; teachingUrl?: string | null; cv?: Prisma.InputJsonValue } = {};
+  const data: Partial<SiteSettings> = {};
 
   if ('contactEmail' in b) {
-    const e = String(b.contactEmail ?? '').trim();
-    if (e && !isEmail(e)) return NextResponse.json({ error: 'That email address does not look valid.' }, { status: 400 });
-    data.contactEmail = e || null;
+    const email = String(b.contactEmail ?? '').trim();
+    if (email && !isEmail(email)) return NextResponse.json({ error: 'That email address does not look valid.' }, { status: 400 });
+    data.contactEmail = email || null;
   }
-  for (const k of ['etsyUrl', 'teachingUrl'] as const) {
-    if (k in b) {
-      const u = cleanUrl(b[k]);
-      if (u === null) return NextResponse.json({ error: `Invalid link for ${k === 'etsyUrl' ? 'Etsy' : 'teaching app'}.` }, { status: 400 });
-      data[k] = u || null;
+  for (const key of ['etsyUrl', 'teachingUrl'] as const) {
+    if (key in b) {
+      const url = cleanUrl(b[key]);
+      if (url === null) return NextResponse.json({ error: `Invalid link for ${key === 'etsyUrl' ? 'Etsy' : 'teaching app'}.` }, { status: 400 });
+      data[key] = url || null;
     }
   }
-  if ('cv' in b) data.cv = normalizeCv(b.cv) as unknown as Prisma.InputJsonValue;
+  if ('cv' in b) data.cv = normalizeCv(b.cv) as Cv;
 
-  await prisma.siteSettings.upsert({ where: { id: 1 }, update: data, create: { id: 1, ...data } });
+  await updateSiteSettings(data);
   return NextResponse.json({ ok: true, ...(await getSettings()) });
 }
 
-// Sends a test email to the saved address so the admin can confirm SMTP works.
 export async function POST() {
   if (!(await isAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const to = await getRecipient();

@@ -1,19 +1,17 @@
 import { redirect } from 'next/navigation';
-import { prisma, safe } from '@/lib/prisma';
 import { isAdmin } from '@/lib/auth';
 import AdminForm from '@/components/AdminForm';
 import SettingsForm from '@/components/SettingsForm';
 import CvBuilder from '@/components/CvBuilder';
 import { getSettings } from '@/lib/settings';
+import { listItems, listInquiries } from '@/lib/store';
 import { mailConfigured } from '@/lib/mailer';
 export const dynamic = 'force-dynamic';
 
 export default async function Admin() {
   if (!(await isAdmin())) redirect('/admin/login');
-  const items = await safe(() => prisma.item.findMany({ orderBy: { createdAt: 'desc' } }), []);
-  const inquiries = await safe(() => prisma.inquiry.findMany({ orderBy: { createdAt: 'desc' }, take: 20 }), []);
-  const settings = await getSettings();
-  const count = (c: string) => items.filter((i) => i.category === c).length;
+  const [items, inquiries, settings] = await Promise.all([listItems(), listInquiries(20), getSettings()]);
+  const count = (category: string) => items.filter((item) => item.category === category).length;
   const stats = [['Quran lessons', count('quran')], ['Clothing designs', count('clothing')], ['Clay pieces', count('clay')], ['Messages', inquiries.length]];
   return (
     <div className="min-h-screen lg:flex">
@@ -30,10 +28,10 @@ export default async function Admin() {
       <main className="flex-1 space-y-6 p-4 md:p-8">
         <h1 className="text-title-xs font-semibold text-gray-800">Dashboard</h1>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {stats.map(([label, n]) => (
+          {stats.map(([label, count]) => (
             <div key={label as string} className="rounded-2xl border border-gray-200 bg-white p-5">
               <p className="text-sm text-gray-500">{label}</p>
-              <p className="mt-1 text-title-sm font-bold text-gray-800">{n}</p>
+              <p className="mt-1 text-title-sm font-bold text-gray-800">{count}</p>
             </div>
           ))}
         </div>
@@ -44,8 +42,8 @@ export default async function Admin() {
           <h2 className="mb-3 text-lg font-semibold text-gray-800">Recent messages</h2>
           {inquiries.length === 0 && <p className="text-sm text-gray-400">No messages yet.</p>}
           <ul className="divide-y divide-gray-100">
-            {inquiries.map((q) => (
-              <li key={q.id} className="py-3"><p className="text-sm font-medium text-gray-800">{q.name} <span className="font-normal text-gray-400">&lt;{q.email}&gt;</span></p><p className="text-sm text-gray-500">{q.message}</p></li>
+            {inquiries.map((inquiry) => (
+              <li key={inquiry.id} className="py-3"><p className="text-sm font-medium text-gray-800">{inquiry.name} <span className="font-normal text-gray-400">&lt;{inquiry.email}&gt;</span></p><p className="text-sm text-gray-600">{inquiry.message}</p></li>
             ))}
           </ul>
         </div>

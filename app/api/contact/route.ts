@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getRecipient } from '@/lib/settings';
 import { sendMail, mailConfigured } from '@/lib/mailer';
 import { isEmail } from '@/lib/cv';
+import { createInquiry } from '@/lib/store';
 
 export const runtime = 'nodejs'; // nodemailer needs Node APIs
 
@@ -14,16 +14,15 @@ export async function POST(req: Request) {
   if (!name || !email || !message) return NextResponse.json({ error: 'Fill all fields' }, { status: 400 });
   if (!isEmail(email)) return NextResponse.json({ error: 'Enter a valid email' }, { status: 400 });
 
-  // 1) Always keep a copy in the dashboard
-  await prisma.inquiry.create({ data: { name, email, message } });
+  // Keep the message in the Render instance's temporary data store.
+  await createInquiry({ name, email, message });
 
-  // 2) Email it to the admin's chosen address (never fails the visitor's request)
   try {
     const to = await getRecipient();
     if (to && mailConfigured()) {
       await sendMail({
         to,
-        replyTo: email, // hitting "Reply" answers the visitor
+        replyTo: email,
         subject: `New message from ${name}`,
         text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
       });
