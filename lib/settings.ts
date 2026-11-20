@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { normalizeCv, type Cv } from '@/lib/cv';
+import { normalizeCv, defaultCv, type Cv } from '@/lib/cv';
 
 export type Settings = { contactEmail: string; etsyUrl: string; teachingUrl: string; cv: Cv };
 
@@ -10,11 +10,11 @@ export async function getSettings(): Promise<Settings> {
       contactEmail: row?.contactEmail ?? '',
       etsyUrl: row?.etsyUrl ?? '',
       teachingUrl: row?.teachingUrl ?? '',
-      cv: normalizeCv(row?.cv),
+      cv: row?.cv ? normalizeCv(row.cv) : defaultCv,
     };
   } catch (e) {
     console.error('getSettings failed', e);
-    return { contactEmail: '', etsyUrl: '', teachingUrl: '', cv: normalizeCv(null) };
+    return { contactEmail: '', etsyUrl: '', teachingUrl: '', cv: defaultCv };
   }
 }
 
