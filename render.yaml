@@ -5,9 +5,7 @@ services:
     plan: free
     envVars:
       # website
-      - key: DATABASE_URL # Neon POOLED string (host contains -pooler)
-        sync: false
-      - key: DIRECT_URL # Neon DIRECT string (same, without -pooler)
+      - key: DATABASE_URL
         sync: false
       - key: ADMIN_USERNAME
         sync: false

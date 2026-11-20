@@ -1,26 +1,33 @@
 #!/bin/sh
-# One container, one Render service: website (foreground) + WhatsApp bot (background).
+# One container: website + WhatsApp bot, each supervised on its own.
+# Neither depends on the other, and neither depends on the database being up.
 
-# Schema sync should use Neon's DIRECT (non-pooler) host. If DIRECT_URL isn't set,
-# derive it from DATABASE_URL by removing "-pooler". Only `db push` uses it.
-DIRECT="${DIRECT_URL:-$(printf '%s' "$DATABASE_URL" | sed 's/-pooler//')}"
+# Database schema sync: runs in the background, never delays or blocks anything.
+# (Uses Neon's direct host when available: DIRECT_URL, else DATABASE_URL minus "-pooler".)
+(
+  DIRECT="${DIRECT_URL:-$(printf '%s' "$DATABASE_URL" | sed 's/-pooler//')}"
+  for i in 1 2 3 4 5; do
+    DATABASE_URL="$DIRECT" npx prisma db push --skip-generate && exit 0
+    echo "[db] schema sync attempt $i/5 failed; retrying in 15s"; sleep 15
+  done
+  echo "[db] schema sync gave up; the site keeps running without it"
+) &
 
-# Sync DB schema at boot. Retry a few times so a sleeping Neon database can wake up.
-# Never blocks startup, but the failure is printed loudly.
-ok=0
-for i in 1 2 3 4 5; do
-  if DATABASE_URL="$DIRECT" npx prisma db push --skip-generate; then ok=1; break; fi
-  echo "!!! prisma db push failed (attempt $i/5), retrying in 5s"; sleep 5
-done
-[ "$ok" = 1 ] || echo "!!!!!! DATABASE UNREACHABLE: check DATABASE_URL / DIRECT_URL in Render and that the Neon project is active !!!!!!"
-
-# Bot: restarts itself if it crashes, without touching the website.
+# WhatsApp bot: restarts itself forever, independent of the website.
 (
   while true; do
     EMBEDDED_BOT=1 python3 whatsapp-bot/bot.py
-    echo "bot exited, restarting in 10s"; sleep 10
+    echo "[bot] exited, restarting in 10s"; sleep 10
   done
 ) &
 
-# Website on Render's $PORT; this is the process Render health-checks.
-exec npx next start -p "${PORT:-3000}"
+# Website: restarts itself forever, independent of the bot.
+(
+  while true; do
+    npx next start -p "${PORT:-3000}"
+    echo "[site] exited, restarting in 5s"; sleep 5
+  done
+) &
+
+trap 'kill 0' TERM INT
+wait
